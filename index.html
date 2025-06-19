@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MyTube - Mini YouTube</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      background: url('wallpaperlog.jpg') no-repeat center
+      center fixed;
+      background-size: cover;
+      color: white;
+    }
+
+    header {
+      background-color: #202020;
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header .logo {
+      color: red;
+    }
+
+    .form {
+      padding: 10px;
+      background: #1c1c1c;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .form input {
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      width: 100%;
+    }
+
+    .form button {
+      padding: 10px;
+      background: red;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .video-container {
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .video-card {
+      background-color: #181818;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .video-card:hover {
+      transform: scale(1.02);
+    }
+
+    .video-card img {
+      width: 100%;
+      display: block;
+    }
+
+    .video-title {
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    .player-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 999;
+    }
+
+    .player-modal iframe {
+      width: 90%;
+      height: 50vh;
+      border: none;
+      border-radius: 10px;
+    }
+
+    .close-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: red;
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    @media(min-width: 600px) {
+      .video-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media(min-width: 900px) {
+      .video-container {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="logo">MyTube</span>
+    <span>📺</span>
+  </header>
+
+  <div class="form">
+    <input type="text" id="judul" placeholder="Judul Video">
+    <input type="text" id="link" placeholder="Link YouTube (https://youtu.be/...)">
+    <button onclick="tambahVideo()">Tambah Video</button>
+  </div>
+
+  <!-- Input pencarian -->
+  <div class="form">
+    <input type="text" id="cari" placeholder="Cari video..." oninput="filterVideo()">
+  </div>
+
+  <div class="video-container" id="videoList">
+    <!-- Video cards akan muncul di sini -->
+  </div>
+
+  <div class="player-modal" id="playerModal">
+    <iframe id="videoFrame" allowfullscreen allow="autoplay"></iframe>
+    <button class="close-btn" onclick="tutupVideo()">Tutup</button>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAHmYph-ST9oJAsyTCD64J0CKbeKQS5UzY",
+      authDomain: "myvideo-1c738.firebaseapp.com",
+      projectId: "myvideo-1c738",
+      storageBucket: "myvideo-1c738.firebasestorage.app",
+      messagingSenderId: "222094597374",
+      appId: "1:222094597374:web:a77b0f5e9c2453e14f99af",
+      measurementId: "G-HR03KHVCB0",
+      databaseURL: "https://myvideo-1c738-default-rtdb.firebaseio.com"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const analytics = firebase.analytics(app);
+    const db = firebase.database();
+
+    let semuaVideo = []; // simpan semua video
+
+    function tambahVideo() {
+      const judul = document.getElementById('judul').value.trim();
+      const link = document.getElementById('link').value.trim();
+      const id = extractVideoId(link);
+
+      if (!judul || !id) {
+        alert("Isi judul & link YouTube yang valid!");
+        return;
+      }
+
+      const data = { title: judul, id: id };
+      db.ref("videos").push(data);
+
+      document.getElementById('judul').value = '';
+      document.getElementById('link').value = '';
+    }
+
+    function extractVideoId(url) {
+      const regex = /(?:youtu\.be\/|v=)([\w-]{11})/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    }
+
+    function tampilkanVideo(video) {
+      const container = document.getElementById("videoList");
+      const card = document.createElement("div");
+      card.className = "video-card";
+      card.innerHTML = `
+        <img src="https://img.youtube.com/vi/${video.id}/hqdefault.jpg" alt="${video.title}">
+        <div class="video-title">${video.title}</div>
+      `;
+      card.onclick = () => putarVideo(video.id);
+      container.appendChild(card);
+    }
+
+    function putarVideo(id) {
+      document.getElementById("videoFrame").src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+      document.getElementById("playerModal").style.display = "flex";
+    }
+
+    function tutupVideo() {
+      document.getElementById("videoFrame").src = "";
+      document.getElementById("playerModal").style.display = "none";
+    }
+
+    // Ambil semua video dari database saat load
+    db.ref("videos").on("child_added", snapshot => {
+      const data = snapshot.val();
+      semuaVideo.push(data);
+      filterVideo(); // render ulang sesuai pencarian
+    });
+
+    // Fungsi filter/cari video
+    function filterVideo() {
+      const keyword = document.getElementById("cari").value.toLowerCase();
+      const container = document.getElementById("videoList");
+      container.innerHTML = "";
+
+      semuaVideo
+        .filter(v => v.title.toLowerCase().includes(keyword))
+        .forEach(video => tampilkanVideo(video));
+    }
+  </script>
+
+</body>
+</html>
